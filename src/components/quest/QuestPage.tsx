@@ -1,102 +1,101 @@
-import React, { useState, useEffect, useRef } from 'react'; // Імпортуємо React і хуки
-import { useParams } from 'react-router-dom'; // Імпортуємо хук для параметрів URL
-import { motion } from 'framer-motion'; // Імпортуємо motion для анімацій
-import { useTranslation } from 'react-i18next'; // Імпортуємо хук для перекладів
-import { MapContainer, TileLayer, Marker, Popup} from 'react-leaflet'; // Імпортуємо компоненти Leaflet
-import { useQuestStore } from '../../utils/hooks'; // Імпортуємо кастомний хук для Redux
-import { toggleTask } from '../../store/questSlice'; // Імпортуємо екшен для зміни стану завдання
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { useQuestStore } from '../../utils/hooks';
+import { toggleTask } from '../../store/questSlice';
 import { getTimeLeftToday } from '../../utils/dateUtils';
-import {LatLngTuple, Map} from "leaflet"; // Імпортуємо утиліту для часу
+import {LatLngTuple,Map} from "leaflet";
 
-// Компонент QuestPage для відображення сторінки квесту
 const QuestPage: React.FC = () => {
-    const { id } = useParams<{ id: string }>(); // Отримуємо ID квесту з URL
-    const { dispatch, quests } = useQuestStore(); // Отримуємо dispatch і список квестів із Redux
-    const quest = quests.find((q) => q.id === id); // Знаходимо квест за ID
-    const [timeLeft, setTimeLeft] = useState<string>(getTimeLeftToday()); // Стан для часу до кінця дня
-    const { t } = useTranslation(); // Отримуємо функцію t для перекладів
-    const mapRef = useRef<Map | null>(null); // Реф для доступу до об’єкта карти Leaflet із типом Map
-    const [isClient, setIsClient] = useState(false); // Стан для перевірки клієнтського рендерингу
+    const { id } = useParams<{ id: string }>();
+    const { dispatch, quests } = useQuestStore();
+    const quest = quests.find((q) => q.id === id);
+    const [timeLeft, setTimeLeft] = useState<string>(getTimeLeftToday());
+    const { t } = useTranslation();
+    const mapRef = useRef<Map | null>(null);
+    const [isClient, setIsClient] = useState(false);
 
-    useEffect(() => { // Ефект для ініціалізації клієнтського рендерингу
-        setIsClient(true); // Встановлюємо, що ми на клієнті
-    }, []); // Виконуємо один раз при монтуванні
+    useEffect(() => {
+        setIsClient(true); // Встановлюємо клієнтський рендеринг
+    }, []);
 
-    useEffect(() => { // Ефект для таймера
-        const timer = setInterval(() => setTimeLeft(getTimeLeftToday()), 60000); // Оновлюємо час кожну хвилину
-        return () => clearInterval(timer); // Очищаємо таймер при розмонтуванні
-    }, []); // Виконуємо один раз
+    useEffect(() => {
+        const timer = setInterval(() => setTimeLeft(getTimeLeftToday()), 60000);
+        return () => clearInterval(timer);
+    }, []);
 
-    useEffect(() => { // Ефект для інвалідизації карти
-        if (mapRef.current) { // Якщо реф карти доступний
-            mapRef.current.invalidateSize(); // Перемальовуємо карту для коректного відображення
+    useEffect(() => {
+        if (isClient && mapRef.current) { // Перевіряємо, чи ми на клієнті й чи є реф
+            mapRef.current.invalidateSize(); // Перемальовуємо карту
         }
-    }, [quest, isClient]); // Залежність від quest і isClient
+    }, [quest, isClient]);
 
-    if (!quest) { // Перевіряємо, чи знайдено квест
-        return <p className="text-center text-gray-500 mt-8 italic">{t('questNotFound')}</p>; // Повідомлення, якщо квест не знайдено
+    if (!quest) {
+        return <p className="text-center text-gray-500 mt-8 italic">{t('questNotFound')}</p>;
     }
 
-    const handleTaskToggle = (taskId: string) => { // Функція для перемикання стану завдання
-        dispatch(toggleTask({ questId: quest.id, taskId })); // Викликаємо екшен для зміни completed
+    const handleTaskToggle = (taskId: string) => {
+        dispatch(toggleTask({ questId: quest.id, taskId }));
     };
 
-    const progress = (quest.tasks.filter((t) => t.completed).length / quest.tasks.length) * 100; // Розраховуємо прогрес у відсотках
-    const center: LatLngTuple = // Визначаємо центр карти
-        quest.locations.length > 0 && quest.locations[0].lat && quest.locations[0].lon // Перевіряємо валідність координат
-            ? [quest.locations[0].lat, quest.locations[0].lon] // Беремо першу локацію
-            : [50.45, 30.52]; // Запасний центр — Київ
+    const progress = (quest.tasks.filter((t) => t.completed).length / quest.tasks.length) * 100;
+    const center: LatLngTuple =
+        quest.locations.length > 0 && quest.locations[0].lat && quest.locations[0].lon
+            ? [quest.locations[0].lat, quest.locations[0].lon]
+            : [50.45, 30.52];
 
     return (
-        <motion.div // Контейнер із анімацією
-            initial={{ opacity: 0 }} // Початковий стан: невидимий
-            animate={{ opacity: 1 }} // Кінцевий стан: видимий
-            transition={{ duration: 0.5 }} // Тривалість анімації
-            className="p-6 max-w-md mx-auto mt-8 bg-gray-900/80 rounded-xl shadow-xl border border-gray-800/50" // Стилі контейнера
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="p-6 max-w-md mx-auto mt-8 bg-gray-900/80 rounded-xl shadow-xl border border-gray-800/50"
         >
             <h2 className="text-2xl font-bold text-white mb-4 bg-gradient-to-r from-purple-500 to-blue-500 bg-clip-text text-transparent">
                 {quest.title}
             </h2>
             <div className="space-y-2 text-gray-300">
                 {[
-                    { label: 'type', value: t(quest.type.toLowerCase()) }, // Тип квесту
-                    { label: 'theme', value: t(quest.theme.toLowerCase()) }, // Тема квесту
-                    { label: 'city', value: quest.city }, // Місто
-                    { label: 'weather', value: quest.weather }, // Погода
-                    { label: 'locations', value: quest.locations.map((loc) => loc.name).join(', ') || 'N/A' }, // Локації
-                    { label: 'timeLeft', value: timeLeft }, // Час до кінця дня
-                    { label: 'progress', value: `${Math.round(progress)}%` }, // Прогрес
-                ].map(({ label, value }) => ( // Перебираємо метадані
+                    { label: 'type', value: t(quest.type.toLowerCase()) },
+                    { label: 'theme', value: t(quest.theme.toLowerCase()) },
+                    { label: 'city', value: quest.city },
+                    { label: 'weather', value: quest.weather },
+                    { label: 'locations', value: quest.locations.map((loc) => loc.name).join(', ') || 'N/A' },
+                    { label: 'timeLeft', value: timeLeft },
+                    { label: 'progress', value: `${Math.round(progress)}%` },
+                ].map(({ label, value }) => (
                     <p key={label}>
                         <span className="font-semibold text-gray-200">{t(label)}:</span> {value}
                     </p>
                 ))}
                 <div className="w-full bg-gray-700 rounded-full h-2.5">
-                    <motion.div // Анімований прогрес-бар
-                        className="bg-gradient-to-r from-purple-500 to-blue-500 h-2.5 rounded-full" // Стилі
-                        initial={{ width: 0 }} // Початкова ширина
-                        animate={{ width: `${progress}%` }} // Кінцева ширина
-                        transition={{ duration: 0.5 }} // Тривалість анімації
+                    <motion.div
+                        className="bg-gradient-to-r from-purple-500 to-blue-500 h-2.5 rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 0.5 }}
                     />
                 </div>
             </div>
 
-            {isClient && ( // Рендеримо карту тільки на клієнті
-                <div className="map-wrapper">
+            {isClient && ( // Карта рендериться тільки на клієнті
+                <div className="map-wrapper" style={{ height: '300px', width: '100%' }}> {/* Явно задаємо розміри */}
                     <MapContainer
-                        center={center} // Центр карти
-                        zoom={13} // Початковий зум
-                        ref={mapRef} // Передаємо реф для доступу до карти
-                        className="leaflet-container" // Клас для стилів
-                        style={{ height: '300px', width: '100%' }} // Явно задаємо розміри
+                        center={center}
+                        zoom={13}
+                        ref={mapRef}
+                        className="h-full w-full" // Змінено className для повного заповнення
+                        style={{ height: '100%', width: '100%' }} // Додано style для впевненості
                     >
-                        <TileLayer // Шар із тайлами OpenStreetMap
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" // URL тайлів
-                            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' // Атрибуція
+                        <TileLayer
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         />
                         {quest.locations
-                            .filter((loc) => loc.lat && loc.lon) // Фільтруємо валідні координати
-                            .map((loc, index) => ( // Перебираємо локації для маркерів
+                            .filter((loc) => loc.lat && loc.lon)
+                            .map((loc, index) => (
                                 <Marker key={index} position={[loc.lat, loc.lon]}>
                                     <Popup>
                                         <strong>{loc.name}</strong>
@@ -109,22 +108,22 @@ const QuestPage: React.FC = () => {
             )}
 
             <ul className="mt-6 space-y-4">
-                {quest.tasks.map((task) => ( // Перебираємо завдання
-                    <motion.li // Елемент списку з анімацією
-                        key={task.id} // Унікальний ключ
-                        initial={{ x: -20, opacity: 0 }} // Початковий стан
-                        animate={{ x: 0, opacity: 1 }} // Кінцевий стан
-                        transition={{ duration: 0.3 }} // Тривалість анімації
-                        className="flex items-center text-white bg-gray-700/50 p-3 rounded-lg border border-gray-600" // Стилі
+                {quest.tasks.map((task) => (
+                    <motion.li
+                        key={task.id}
+                        initial={{ x: -20, opacity: 0 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                        className="flex items-center text-white bg-gray-700/50 p-3 rounded-lg border border-gray-600"
                     >
-                        <input // Чекбокс для завдання
-                            type="checkbox" // Тип чекбокс
-                            checked={task.completed} // Стан чекбокса
-                            onChange={() => handleTaskToggle(task.id)} // Перемикаємо стан
-                            className="mr-3 h-5 w-5 text-purple-500 bg-gray-800 border-gray-600 rounded focus:ring-purple-500" // Стилі
+                        <input
+                            type="checkbox"
+                            checked={task.completed}
+                            onChange={() => handleTaskToggle(task.id)}
+                            className="mr-3 h-5 w-5 text-purple-500 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
                         />
                         <span className={task.completed ? 'line-through text-gray-500' : 'text-white'}>
-                            {task.description}
+              {task.description}
             </span>
                     </motion.li>
                 ))}
@@ -133,4 +132,4 @@ const QuestPage: React.FC = () => {
     );
 };
 
-export default QuestPage; // Експортуємо компонент
+export default QuestPage;
